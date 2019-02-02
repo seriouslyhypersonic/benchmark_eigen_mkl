@@ -68,7 +68,7 @@ add_dependencies(libcelero celero_project)
 option(OPTION_PRINT_DEBUG_INFORMATION "Prints debug information" OFF)
 
 
-set(HEADERS include/debug.hpp include/mkl_utils.hpp include/random_vector.hpp)
+set(HEADERS include/debug.hpp include/mkl_utils.hpp include/random_vector.hpp include/fixture.hpp)
 set(SOURCES benchmark_dgemm.cpp test/dgemm.cpp)
 
 add_executable(benchmark_dgemm ${HEADERS} ${SOURCES})

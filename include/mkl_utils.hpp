@@ -12,11 +12,13 @@
 #include <string>
 #include <iomanip>
 
+#include <mkl.h>
+
 /// Contiguous memory index for column-major memory layout
 #define N_CM(i, j, M, N) (i + j*M)
 
 /// Print matrix in column-major order
-void printColMajor(const std::string& matrixName,
+inline void printColMajor(const std::string& matrixName,
                    const double* matrix, std::size_t m, std::size_t n)
 {
     std::cout << matrixName << " = {\n";
@@ -27,6 +29,13 @@ void printColMajor(const std::string& matrixName,
         std::cout << '\n';
     }
     std::cout << "}\n";
+}
+
+/// Call dgemm for column-major square matrices
+inline void squareDgemm(double* mA, double* mB, double* mC, int matrixDim, int alpha, int beta)
+{
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, matrixDim, matrixDim,
+        matrixDim, alpha, mA, matrixDim, mB, matrixDim, beta, mC, matrixDim);
 }
 
 #endif //MKL_UTILS_H

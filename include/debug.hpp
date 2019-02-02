@@ -15,7 +15,8 @@
     #define EIGEN_DEBUG(x) std::cout << #x " = {\n" << x << "\n}" << std::endl
     #define MKL_DEBUG(matrix, m, n) printColMajor(#matrix, matrix, m, n)
 #else
-    #define PRINT_DEBUG(x) void ANONYMOUS_FUNCTION()
+    #define EIGEN_DEBUG(x) void ANONYMOUS_FUNCTION()
+    #define MKL_DEBUG(matrix, m, n) void ANONYMOUS_FUNCTION()
 #endif
 
 #endif //DEBUG_H

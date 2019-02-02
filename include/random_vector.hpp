@@ -10,11 +10,11 @@
 
 #include <vector>
 #include <random>
-#include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 template<class T>
-std::vector<T> makeRandomVector(std::size_t size, T min, T max)
+std::vector<T> makeRandomVector(std::int64_t size, T min, T max)
 {
     std::random_device rd;  // To obtain a seed for the random number engine
     std::mt19937 gen(rd()); // Random number engine
