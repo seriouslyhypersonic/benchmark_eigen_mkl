@@ -52,6 +52,12 @@ if (MKL_THREADING STREQUAL "intel")
     message(STATUS "MKL execution mode: parallel (Intel(R) OpenMP library)")
     set(MKL_THREADING_INTEL TRUE)
 elseif (MKL_THREADING STREQUAL "gnu")
+    if (APPLE)
+        message(FATAL_ERROR
+                "On MacOS X, the GNU threading layer is unsupported.\n"
+                "You can select Intel(R) instead")
+    endif ()
+
     message(STATUS "MKL execution mode: parallel (GNU OpenMP library)")
     set(MKL_THREADING_GNU TRUE)
 elseif (MKL_THREADING STREQUAL "sequential")
@@ -122,15 +128,18 @@ message(STATUS "    Run-time threading library   ${RTL_LIB}")
 
 # --- Search libraries and includes
 find_library(MKL_INTERFACE_LIBRARY NAMES ${INT_LIB}
-        PATHS $ENV{MKLROOT}/lib/intel64
+        PATHS $ENV{MKLROOT}/lib/
+              $ENV{MKLROOT}/lib/intel64
               $ENV{INTEL}/mkl/lib/intel64
         NO_DEFAULT_PATH)
 if(NOT MKL_INTERFACE_LIBRARY)
+    message($ENV{MKLROOT})
     message(FATAL_ERROR "Cannot find MKL interface library: ${INT_LIB}")
 endif()
 
 find_library(MKL_CORE_LIBRARY  NAMES ${COR_LIB}
-        PATHS $ENV{MKLROOT}/lib/intel64
+        PATHS $ENV{MKLROOT}/lib/
+              $ENV{MKLROOT}/lib/intel64
               $ENV{INTEL}/mkl/lib/intel64
         NO_DEFAULT_PATH)
 if(NOT MKL_CORE_LIBRARY)
@@ -139,7 +148,8 @@ endif()
 
 find_library(MKL_THREADING_LAYER_LIBRARY
         NAMES ${THR_LIB}
-        PATHS $ENV{MKLROOT}/lib/intel64
+        PATHS $ENV{MKLROOT}/lib/
+              $ENV{MKLROOT}/lib/intel64
               $ENV{INTEL}/mkl/lib/intel64
         NO_DEFAULT_PATH)
 if(NOT MKL_THREADING_LAYER_LIBRARY)
@@ -163,7 +173,7 @@ set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIR})
 # --- Generate links to MKL libraries and its dependencies
 # todo: other platforms
 # GNU
-if (UNIX AND NOT APPLE)
+if (UNIX)
     # Always required
     set(MKL_LINK_OPTIONS -lpthread -lm -ldl)
 
@@ -176,10 +186,13 @@ if (UNIX AND NOT APPLE)
 
     # todo: dynamic MKL
 
-    # --start-group --end-group required with static MKL
-    set(MKL_LIBRARIES
-            "-Wl,--start-group"  ${MKL_LIBRARIES}  "-Wl,--end-group"
-            ${MKL_LINK_OPTIONS})
+    if (NOT APPLE) # and static
+        # --start-group --end-group required
+        set(MKL_LIBRARIES
+                "-Wl,--start-group"  ${MKL_LIBRARIES}  "-Wl,--end-group")
+    endif ()
+
+    set(MKL_LIBRARIES ${MKL_LIBRARIES} ${MKL_LINK_OPTIONS})
 endif ()
 
 # --- Set compiler options
