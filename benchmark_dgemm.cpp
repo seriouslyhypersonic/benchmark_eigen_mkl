@@ -13,15 +13,30 @@
 
 CELERO_MAIN
 
-const int numSamples = 3;
-const int numIterations = 75;
+//const int numLinearSamples = 3;
+//const int numLinearIterations = 75;
+//
+//BASELINE_F(Gemm, Baseline, MKLFixture<>, numLinearSamples, numLinearIterations)
+//{
+//    squareDgemm(mA, mA, mC, matrixDim, 1, 1);
+//}
+//
+//BENCHMARK_F(Gemm, Eigen, EigenFixture<>, numLinearSamples, numLinearIterations)
+//{
+//    celero::DoNotOptimizeAway((eA * eA).eval());
+//}
 
-BASELINE_F(Gemm, Baseline, MKLFixture<>, numSamples, numIterations)
+const int numSemilogSamples = 5;
+const int numSemilogIterations = 0;
+
+BASELINE_F(SemilogGemm, Baseline, MKLFixture<ProgressionPolicy::semilog>
+          ,numSemilogSamples, numSemilogIterations)
 {
     squareDgemm(mA, mA, mC, matrixDim, 1, 1);
 }
 
-BENCHMARK_F(Gemm, Eigen, EigenFixture<4>, numSamples, numIterations)
+BENCHMARK_F(SemilogGemm, Eigen, EigenFixture<ProgressionPolicy::semilog>
+           ,numSemilogSamples, numSemilogIterations)
 {
     celero::DoNotOptimizeAway((eA * eA).eval());
 }

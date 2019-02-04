@@ -26,10 +26,17 @@
 using EigenMatrix = Eigen::MatrixXd;
 using MKLMatrix = double*;
 
-constexpr int defaultNumberOfTests = 100;
-constexpr int defaultIncrement = 25;
+namespace settings
+{
+constexpr int numLinearProgressionTests = 100;
+constexpr int numGeometricProgressionTests = 100;
+constexpr int numSemilogProgressionTests = 35;
+constexpr int increment = 25;
 
-enum class ProgressionPolicy {linear, geometric};
+constexpr int numberOfThreads = 0;
+}
+
+enum class ProgressionPolicy {linear, geometric, semilog};
 
 /**
  * Creates a set of linearly increasing matrix dimensions
@@ -64,7 +71,31 @@ geometricProgression(int numberOfTests, int increment)
     return problemSpace;
 }
 
-template<ProgressionPolicy policy, int numberOfTests, int increment>
+inline std::vector<celero::TestFixture::ExperimentValue>
+semilogProgression(int numberOfTests)
+{
+    std::vector<celero::TestFixture::ExperimentValue> problemSpace;
+
+    std::int64_t matrixDim = 1;
+    for (int i = 1; i <= numberOfTests; ++i) {
+        auto orderMag = static_cast<std::int64_t>
+            (std::floor(std::log10(matrixDim)));
+        matrixDim += static_cast<std::int64_t>(std::pow(10, orderMag));
+
+        // Adjust iterations of the problemSpace according to matrix dimensions
+        static std::int64_t iterations;
+        switch (matrixDim) {
+            case      2: iterations = 100; break;
+            case    100: iterations = 25;  break;
+            case   1000: iterations = 5;   break;
+            case 10'000: iterations = 3;   break;
+        }
+        problemSpace.push_back({matrixDim, iterations});
+    }
+    return problemSpace;
+}
+
+template<ProgressionPolicy policy>
 class MatrixFixture: public celero::TestFixture
 {
 public:
@@ -75,9 +106,13 @@ public:
     {
         switch (policy) {
             case ProgressionPolicy::linear:
-                return linearProgression(numberOfTests, increment);
+                return linearProgression(settings::numLinearProgressionTests
+                                        ,settings::increment);
             case ProgressionPolicy::geometric:
-                return geometricProgression(numberOfTests, increment);
+                return geometricProgression(settings::numGeometricProgressionTests
+                                           ,settings::increment);
+            case ProgressionPolicy::semilog:
+                return semilogProgression(settings::numSemilogProgressionTests);
         }
     }
 
@@ -102,10 +137,8 @@ protected:
     std::int64_t matrixSize;
 };
 
-template<ProgressionPolicy policy = ProgressionPolicy::linear
-        ,int numberOfTests = defaultNumberOfTests
-        ,int increment = defaultIncrement>
-class MKLFixture: public MatrixFixture<policy, numberOfTests, increment>
+template<ProgressionPolicy policy = ProgressionPolicy::linear>
+class MKLFixture: public MatrixFixture<policy>
 {
 public:
     MKLFixture() = default;
@@ -154,11 +187,8 @@ private:
     static constexpr int align = 64; // bytes
 };
 
-template<int nThreads
-        ,ProgressionPolicy policy = ProgressionPolicy::linear
-        ,int numberOfTests = defaultNumberOfTests
-        ,int increment = defaultIncrement>
-class EigenFixture: public MatrixFixture<policy, numberOfTests, increment>
+template<ProgressionPolicy policy = ProgressionPolicy::linear>
+class EigenFixture: public MatrixFixture<policy>
 {
 public:
     EigenFixture() = default;
@@ -166,9 +196,9 @@ public:
     /// Before each run build matrices of random data and setup threading
     void setUp(const celero::TestFixture::ExperimentValue& experimentValue) override
     {
-        if constexpr (nThreads != 0) {
+        if constexpr (settings::numberOfThreads != 0) {
             // Eigen threading
-            Eigen::setNbThreads(nThreads);
+            Eigen::setNbThreads(settings::numberOfThreads);
         }
 
         // Update matrix dimensions based on the current experiment

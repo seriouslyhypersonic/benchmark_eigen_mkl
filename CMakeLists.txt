@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Add Eigen
 # ------------------------------------------------------------------------------
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(OpenMP REQUIRED)
+#find_package(OpenMP REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Intel MKL
@@ -73,13 +73,14 @@ set(SOURCES benchmark_dgemm.cpp test/dgemm.cpp)
 
 add_executable(benchmark_dgemm ${HEADERS} ${SOURCES})
 
+
 target_include_directories(benchmark_dgemm PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${MKL_INCLUDE_DIRS})
 
 target_link_libraries(benchmark_dgemm
         libcelero
-        Eigen3::Eigen OpenMP::OpenMP_CXX
+        Eigen3::Eigen #OpenMP::OpenMP_CXX
         ${MKL_LIBRARIES})
 
 if (OPTION_PRINT_DEBUG_INFORMATION)
