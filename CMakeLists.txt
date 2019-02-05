@@ -69,12 +69,22 @@ option(OPTION_PRINT_DEBUG_INFORMATION "Prints debug information" OFF)
 
 
 set(HEADERS include/debug.hpp include/mkl_utils.hpp include/random_vector.hpp include/fixture.hpp)
-set(SOURCES benchmark_dgemm.cpp test/dgemm.cpp)
+set(SOURCES_TESTS test/dgemm.cpp)
 
-add_executable(benchmark_dgemm ${HEADERS} ${SOURCES})
+add_executable(benchmark_dgemm ${HEADERS} benchmark_dgemm.cpp)
+add_executable(benchmark_madd ${HEADERS} benchmark_madd.cpp)
 
+add_executable(tests_run ${HEADERS} ${SOURCES_TESTS})
 
 target_include_directories(benchmark_dgemm PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${MKL_INCLUDE_DIRS})
+
+target_include_directories(benchmark_madd PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${MKL_INCLUDE_DIRS})
+
+target_include_directories(tests_run PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${MKL_INCLUDE_DIRS})
 
@@ -83,7 +93,19 @@ target_link_libraries(benchmark_dgemm
         Eigen3::Eigen #OpenMP::OpenMP_CXX
         ${MKL_LIBRARIES})
 
+target_link_libraries(benchmark_madd
+        libcelero
+        Eigen3::Eigen #OpenMP::OpenMP_CXX
+        ${MKL_LIBRARIES})
+
+target_link_libraries(tests_run
+        libcelero
+        Eigen3::Eigen #OpenMP::OpenMP_CXX
+        ${MKL_LIBRARIES})
+
 if (OPTION_PRINT_DEBUG_INFORMATION)
     target_compile_definitions(benchmark_dgemm PRIVATE PRINT_DEBUG_INFORMATION)
+    target_compile_definitions(benchmark_madd PRIVATE PRINT_DEBUG_INFORMATION)
+    target_compile_definitions(tests_run PRIVATE PRINT_DEBUG_INFORMATION)
     message(STATUS "Debug information will be printed to stdout")
 endif ()

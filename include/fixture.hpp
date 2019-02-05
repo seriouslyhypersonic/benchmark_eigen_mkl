@@ -30,7 +30,7 @@ namespace settings
 {
 constexpr int numLinearProgressionTests = 100;
 constexpr int numGeometricProgressionTests = 100;
-constexpr int numSemilogProgressionTests = 35;
+constexpr int numSemilogProgressionTests = 31;
 constexpr int increment = 25;
 
 constexpr int numberOfThreads = 0;
@@ -152,8 +152,10 @@ public:
         // Initialize MKL matrices
 
         mA = allocate_dmatrix(this->matrixSize);
+        mACopy = allocate_dmatrix(this->matrixSize);
         auto matrixData = this->makeRandomMatrixData();
         std::copy(matrixData.begin(), matrixData.end(), mA);
+        std::copy(matrixData.begin(), matrixData.end(), mACopy);
 
         mC = allocate_dmatrix(this->matrixSize);
         std::fill(mC, mC + this->matrixSize, 0);
@@ -170,6 +172,7 @@ public:
     }
 
     MKLMatrix mA;
+    MKLMatrix mACopy;
     MKLMatrix mC;
 
 private:
