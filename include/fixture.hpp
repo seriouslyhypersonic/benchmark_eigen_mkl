@@ -26,17 +26,7 @@
 using EigenMatrix = Eigen::MatrixXd;
 using MKLMatrix = double*;
 
-namespace settings
-{
-constexpr int numLinearProgressionTests = 100;
-constexpr int numGeometricProgressionTests = 100;
-constexpr int numSemilogProgressionTests = 31;
-constexpr int increment = 25;
-
-constexpr int numberOfThreads = 0;
-}
-
-enum class ProgressionPolicy {linear, geometric, semilog};
+enum class ProgressionPolicy {linear, geometric, semilogGemm, semilogAdd};
 
 /**
  * Creates a set of linearly increasing matrix dimensions
@@ -57,6 +47,12 @@ linearProgression(int numberOfTests, int increment)
     return problemSpace;
 }
 
+/**
+ * Creates a set of matrix dimensions that follow a geometric progression
+ * @param numberOfTests Total number of tests
+ * @param increment Common ration for the geometric progression
+ * @return A problemSpace (i.e. the set of matrix dimensions)
+ */
 inline std::vector<celero::TestFixture::ExperimentValue>
 geometricProgression(int numberOfTests, int increment)
 {
@@ -71,8 +67,14 @@ geometricProgression(int numberOfTests, int increment)
     return problemSpace;
 }
 
+/**
+ * Creates a set of matrix dimensions to create a semilog plot when
+ * benchmarking gdemm functions (faster decay of benchmark iterations)
+ * @param numberOfTests Total number of tests
+ * @return A problemSpace (i.e. the set of matrix dimensions)
+ */
 inline std::vector<celero::TestFixture::ExperimentValue>
-semilogProgression(int numberOfTests)
+semilogGemmProgression(int numberOfTests)
 {
     std::vector<celero::TestFixture::ExperimentValue> problemSpace;
 
@@ -95,6 +97,36 @@ semilogProgression(int numberOfTests)
     return problemSpace;
 }
 
+/**
+ * Creates a set of matrix dimensions to create a semilog plot when
+ * benchmarking matrix addition (slower decay of benchmark iterations)
+ * @param numberOfTests Total number of tests
+ * @return A problemSpace (i.e. the set of matrix dimensions)
+ */
+inline std::vector<celero::TestFixture::ExperimentValue>
+semilogAddProgression(int numberOfTests)
+{
+    std::vector<celero::TestFixture::ExperimentValue> problemSpace;
+
+    std::int64_t matrixDim = 1;
+    for (int i = 1; i <= numberOfTests; ++i) {
+        auto orderMag = static_cast<std::int64_t>
+        (std::floor(std::log10(matrixDim)));
+        matrixDim += static_cast<std::int64_t>(std::pow(10, orderMag));
+
+        // Adjust iterations of the problemSpace according to matrix dimensions
+        static std::int64_t iterations;
+        switch (matrixDim) {
+            case      2: iterations = 100; break;
+            case   1000: iterations = 75;   break;
+        }
+        problemSpace.push_back({matrixDim, iterations});
+    }
+    return problemSpace;
+}
+
+/// Base class for all fixtures ralated to matrix operations
+/// \tparam policy The ProgressionPolicy for the benchmark fixture
 template<ProgressionPolicy policy>
 class MatrixFixture: public celero::TestFixture
 {
@@ -106,18 +138,17 @@ public:
     {
         switch (policy) {
             case ProgressionPolicy::linear:
-                return linearProgression(settings::numLinearProgressionTests
-                                        ,settings::increment);
+                return linearProgression(numLinearProgressionTests
+                                        ,increment);
             case ProgressionPolicy::geometric:
-                return geometricProgression(settings::numGeometricProgressionTests
-                                           ,settings::increment);
-            case ProgressionPolicy::semilog:
-                return semilogProgression(settings::numSemilogProgressionTests);
+                return geometricProgression(numGeometricProgressionTests
+                                           ,increment);
+            case ProgressionPolicy::semilogGemm:
+                return semilogGemmProgression(numSemilogGemmProgressionTests);
+            case ProgressionPolicy::semilogAdd:
+                return semilogAddProgression(numSemilogAddProgressionTests);
         }
     }
-
-    static constexpr double dataMin = 0.0;
-    static constexpr double dataMax = 1.0;
 
 protected:
     // Helper setter
@@ -135,8 +166,22 @@ protected:
 
     std::int64_t matrixDim;
     std::int64_t matrixSize;
+
+private:
+    static constexpr int increment = 25;
+
+    static constexpr int numLinearProgressionTests = 100;
+    static constexpr int numGeometricProgressionTests = 100;
+    static constexpr int numSemilogGemmProgressionTests = 35;
+
+    // Fewer tests because of additional memory requirements (matrix copies)
+    static constexpr int numSemilogAddProgressionTests = 35;
+
+    static constexpr double dataMin = 0.0;
+    static constexpr double dataMax = 1.0;
 };
 
+/// This MKL fixture allocates aligned buffers
 template<ProgressionPolicy policy = ProgressionPolicy::linear>
 class MKLFixture: public MatrixFixture<policy>
 {
@@ -150,14 +195,12 @@ public:
         this->updateMatrixDim(experimentValue.Value);
 
         // Initialize MKL matrices
-
         mA = allocate_dmatrix(this->matrixSize);
-        mACopy = allocate_dmatrix(this->matrixSize);
-        auto matrixData = this->makeRandomMatrixData();
-        std::copy(matrixData.begin(), matrixData.end(), mA);
-        std::copy(matrixData.begin(), matrixData.end(), mACopy);
-
         mC = allocate_dmatrix(this->matrixSize);
+
+        auto matrixData = this->makeRandomMatrixData();
+
+        std::copy(matrixData.begin(), matrixData.end(), mA);
         std::fill(mC, mC + this->matrixSize, 0);
 
         MKL_DEBUG(mA, this->matrixDim, this->matrixDim);
@@ -171,23 +214,65 @@ public:
         mkl_free(mC);
     }
 
-    MKLMatrix mA;
-    MKLMatrix mACopy;
-    MKLMatrix mC;
-
-private:
+protected:
     // Helper allocation function
-    double* allocate_dmatrix(std::int64_t matrixSize)
+    virtual double* allocate_dmatrix(std::int64_t matrixSize)
     {
         auto ptr =
-            static_cast<double*>(mkl_malloc(matrixSize*sizeof(double), align));
+            static_cast<double*>
+                (mkl_malloc(matrixSize*sizeof(double), this->align));
+        if (!ptr) {
+            std::cerr << "error: cannot allocate matrices\n";
+            throw std::bad_alloc{};
+        }
+        return ptr;
+    }
+
+    MKLMatrix mA = nullptr;
+    MKLMatrix mC = nullptr;
+
+    static constexpr int align = 64; // default alignment on 64-byte bounndary
+};
+
+/// This MKL fixture with copies for mkl_domatadd
+template<ProgressionPolicy policy = ProgressionPolicy::linear>
+class MKLFixtureB: public MKLFixture<policy>
+{
+public:
+    MKLFixtureB() = default;
+
+    /// Before each run build matrices of random integers
+    void setUp(const celero::TestFixture::ExperimentValue& experimentValue) override
+    {
+        // Update matrix dimensions and allocate mA
+        MKLFixture<policy>::setUp(experimentValue);
+
+        // Allocate additional space for mAcopy and mC
+        mB = allocate_dmatrix(this->matrixSize);
+        std::copy(this->mA, this->mA + this->matrixSize, mB);
+        MKL_DEBUG(mB, this->matrixDim, this->matrixDim);
+    }
+
+    // Clear MKL matrices on tearDown and do not include deallocation time
+    void tearDown() override
+    {
+        MKLFixture<policy>::tearDown();
+        mkl_free(mB);
+    }
+
+protected:
+    // Helper allocation function
+    virtual double* allocate_dmatrix(std::int64_t matrixSize)
+    {
+        auto ptr =
+             static_cast<double*>(mkl_malloc(matrixSize*sizeof(double), this->align));
         if (!ptr) {
             throw std::bad_alloc{};
         }
         return ptr;
     }
 
-    static constexpr int align = 64; // bytes
+    MKLMatrix mB = nullptr;
 };
 
 template<ProgressionPolicy policy = ProgressionPolicy::linear>
@@ -199,9 +284,9 @@ public:
     /// Before each run build matrices of random data and setup threading
     void setUp(const celero::TestFixture::ExperimentValue& experimentValue) override
     {
-        if constexpr (settings::numberOfThreads != 0) {
+        if constexpr (numberOfThreads != 0) {
             // Eigen threading
-            Eigen::setNbThreads(settings::numberOfThreads);
+            Eigen::setNbThreads(numberOfThreads);
         }
 
         // Update matrix dimensions based on the current experiment
@@ -215,7 +300,10 @@ public:
         EIGEN_DEBUG(eA);
     }
 
+protected:
     EigenMatrix eA;
+
+    static constexpr int numberOfThreads = 4;
 };
 
 #endif //FIXTURE_DGEMM_H

@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Add Eigen
 # ------------------------------------------------------------------------------
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-#find_package(OpenMP REQUIRED)
+find_package(OpenMP REQUIRED)
 
 # ------------------------------------------------------------------------------
 # Intel MKL
@@ -67,9 +67,8 @@ add_dependencies(libcelero celero_project)
 # --- Print debug information
 option(OPTION_PRINT_DEBUG_INFORMATION "Prints debug information" OFF)
 
-
 set(HEADERS include/debug.hpp include/mkl_utils.hpp include/random_vector.hpp include/fixture.hpp)
-set(SOURCES_TESTS test/dgemm.cpp)
+set(SOURCES_TESTS test/test.cpp)
 
 add_executable(benchmark_dgemm ${HEADERS} benchmark_dgemm.cpp)
 add_executable(benchmark_madd ${HEADERS} benchmark_madd.cpp)
@@ -90,17 +89,17 @@ target_include_directories(tests_run PRIVATE
 
 target_link_libraries(benchmark_dgemm
         libcelero
-        Eigen3::Eigen #OpenMP::OpenMP_CXX
+        Eigen3::Eigen OpenMP::OpenMP_CXX
         ${MKL_LIBRARIES})
 
 target_link_libraries(benchmark_madd
         libcelero
-        Eigen3::Eigen #OpenMP::OpenMP_CXX
+        Eigen3::Eigen OpenMP::OpenMP_CXX
         ${MKL_LIBRARIES})
 
 target_link_libraries(tests_run
         libcelero
-        Eigen3::Eigen #OpenMP::OpenMP_CXX
+        Eigen3::Eigen OpenMP::OpenMP_CXX
         ${MKL_LIBRARIES})
 
 if (OPTION_PRINT_DEBUG_INFORMATION)

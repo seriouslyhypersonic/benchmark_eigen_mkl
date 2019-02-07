@@ -29,13 +29,13 @@ CELERO_MAIN
 const int numSemilogSamples = 5;
 const int numSemilogIterations = 0;
 
-BASELINE_F(SemilogGemm, Baseline, MKLFixture<ProgressionPolicy::semilog>
+BASELINE_F(SemilogGemm, Baseline, MKLFixture<ProgressionPolicy::semilogGemm>
           ,numSemilogSamples, numSemilogIterations)
 {
     squareDgemm(mA, mA, mC, matrixDim, 1, 1);
 }
 
-BENCHMARK_F(SemilogGemm, Eigen, EigenFixture<ProgressionPolicy::semilog>
+BENCHMARK_F(SemilogGemm, Eigen, EigenFixture<ProgressionPolicy::semilogGemm>
            ,numSemilogSamples, numSemilogIterations)
 {
     celero::DoNotOptimizeAway((eA * eA).eval());
